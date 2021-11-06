@@ -1,0 +1,11 @@
+
+public class Commands {
+
+	public static final String LIST_USERS = "::LISTA_CLIENTES";
+	public static final String EXIT = "::SAIR";
+	public static final String MENSAGEM = "::MSG";
+	public static final String LOGIN = "::LOGIN";
+	public static final String LOGIN_ACCEPTED = "::LOGIN_ACEITO";
+	public static final String LOGIN_NEGADO = "::LOGIN_NEGADO";
+
+}

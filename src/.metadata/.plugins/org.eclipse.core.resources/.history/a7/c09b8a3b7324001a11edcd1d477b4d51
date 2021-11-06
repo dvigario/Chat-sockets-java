@@ -1,0 +1,140 @@
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * this class will manage communication between client and server and between client and another client
+ * @author DViga
+ *
+ */
+
+
+//extend the Thread class so you can accept multiple clients at once and can talk to each other
+public class ClientManager extends Thread {
+	
+	private Socket client;  // client created
+	private String clientName;
+	private BufferedReader reader;
+	private PrintWriter writer;
+	
+/**
+ *  Map = default key / value (a key that sends a value, eg john = homeowner)
+ *  It is a statistical list of clients that will run on the server that runs the entire jvm with one instance just to have all clients
+ *  the key will be the name you type in chat and the value is the client manager
+ */	
+	private static final Map<String,ClientManager> clients = new HashMap<String,ClientManager>();
+//	constructor - Receives a socket as a parameter because it is a client manager for each client.
+	public ClientManager(Socket client) {  
+		this.client = client; 
+//		start a thread		
+		start();
+	}
+	
+	/**
+	 * the whole Thread class has the run and is method where it will make the conversation between clients
+	 * receive conversations and send conversations
+	 * client.getInputStream - When the client sends msg the msgs stay inside this InputStream
+	 * what is an InputStream - get a data connection, send data in real time from packet to packet
+	 * The stream itself reads bytes, so there is class to work with string. Ex class BufferedReader
+	 * The stream only read byte so it has to have this BufferedReader class that can read string, its means
+	 * can string into us
+	 */
+	@Override
+	public void run() {
+		try {			
+			reader = new BufferedReader(new InputStreamReader(client.getInputStream()));  // reader = get client msg
+			writer = new PrintWriter(client.getOutputStream(), true);  //PrintWriter = To send msg to client (outputStream) to send
+//			the second parameter (true) is an autoflush - true and to send the client directly to msg
+			
+			//String msg = reader.readLine (); every time you type something and hit enter it gets here msg
+			// this.nomeCliente = msg  // CustomerName and the name of the customer we gave
+			
+			effectLogin();
+			
+			String msg;
+			// while loop because the client can send multiple msgs
+			while(true){
+				msg = reader.readLine();  // read client msgs
+				
+				
+				// this if is for the client option to leave
+				if(msg.equalsIgnoreCase(Commands.EXIT)){
+					this.client.close();
+				}else if(msg.startsWith(Commands.MESSAGE)){
+					String recipientName = msg.substring(Commands.MESSAGE.length(), msg.length());
+					System.out.println("sending to " + recipientName);
+					ClientManager recipient = clients.get(recipientName);
+					if(recipient == null){
+						writer.println("The informed client does not exist");
+					}else{
+//						escritor.println("digite uma mensagem para " + destinario.getNomeCliente());
+						//Sending client msg to
+						recipient.getWriter().println(this.clientName + " said: " + reader.readLine());
+					}
+					
+					
+				// lists the name of all logged in clients
+				}else if(msg.equals(Commands.LIST_USERS)){
+					updateUsersList(this);
+				}else{
+					writer.println(this.clientName + ", you said: " + msg);
+				}
+			}
+			
+			
+		} catch (IOException e) {
+			System.err.println("the client closed the connection");
+			clients.remove(this.clientName);
+			e.printStackTrace();
+		}
+	}
+
+	private synchronized void  effectLogin() throws IOException {
+		
+		while(true){
+			writer.println(Commands.LOGIN);
+			this.clientName = reader.readLine().toLowerCase().replaceAll(",", "");
+			if(this.clientName.equalsIgnoreCase("null") || this.clientName.isEmpty()){
+				writer.println(Commands.LOGIN_DENIED);
+			}else if(clients.containsKey(this.clientName)){
+				writer.println(Commands.LOGIN_DENIED);
+			}else{
+				writer.println(Commands.LOGIN_ACCEPTED);
+				writer.println("hello " + this.clientName);
+				clients.put(this.clientName, this);
+				// put is the method that throws the key and value into the map. this is the user who logged in
+				for(String client: clients.keySet()){
+					updateUsersList(clients.get(client));
+				}
+				break;
+			}
+		}
+	}
+
+	private void updateUsersList(ClientManager client) {
+		StringBuffer str = new StringBuffer();
+		for(String c: clients.keySet()){
+			if(client.getClientName().equals(c))
+				continue;
+			
+			str.append(c);
+			str.append(",");
+		}
+		if(str.length() > 0)
+			str.delete(str.length()-1, str.length());
+		client.getWriter().println(Commands.LIST_USERS);
+		client.getWriter().println(str.toString());
+	}
+// method that returns the writer
+	public PrintWriter getWriter() {
+		return writer;
+	}
+// method that returns the customer name
+	public String getClientName() {
+		return clientName;
+	}
+}

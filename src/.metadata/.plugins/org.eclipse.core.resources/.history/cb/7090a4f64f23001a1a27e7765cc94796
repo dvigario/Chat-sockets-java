@@ -1,0 +1,37 @@
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.net.Socket;
+
+
+public class ServerSide {
+	
+	public static void main(String[] args) {
+		
+		ServerSocket servidor = null;
+		try {
+			System.out.println("startando o servidor");
+			// cria uma classe ServerSocket com parametro da porta 999 para poder iniciar um servidor e aceitar novas conexoes			
+			servidor = new ServerSocket(9999);
+			System.out.println("servidor startado...");
+			
+			// while para aceitar conexoes
+			while(true){
+				Socket cliente = servidor.accept();  // espera clientes se conectarem e toda vez q conecta vem um socket para mim
+				// mas para nao fazer isso tudo aqui dentro, criamos uma classe para gerenciar o servidor de sockets (o que vem)
+				// para gerenciar a conversa entre o cliente e o servidor
+				new ClientManager(cliente);  // toda vez q tiver uma nova conexao, cria um novo gerenciador de cliente passando o socket
+			}
+			
+		} catch (IOException e) {
+			
+			try {
+				if(servidor != null)
+					servidor.close();
+			} catch (IOException e1) {}
+			
+			System.err.println("a porta está ocupada ou servidor foi fechado");
+			e.printStackTrace();
+		}
+		
+	}
+}

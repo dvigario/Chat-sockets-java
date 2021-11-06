@@ -1,0 +1,143 @@
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
+import java.io.FileWriter;
+
+// essa classe vai gerenciar a comunicacao entre o cliente e o servidor e entre o cliente e outro cliente
+
+
+public class ClientManager extends Thread {  // extend a classe Thread para poder aceitar varios clientes ao mesmo tempo e poderem se falar
+	
+	private Socket client;  // cliente criado
+	private String clientName;
+	private BufferedReader reader;
+	private PrintWriter writer;
+	// Map = padrao chave/valor (uma chave q envia um valor, ex: joao=dono da casa)
+	// uma lista estatica de clientes q vao rodar no servidor q rode na jvm inteira com uma instancia so para ter todos os clientes
+	// a chave vai ser o nome que digita no chat e o valor is o gerenciador de clientes
+	private static final Map<String,ClientManager> clients = new HashMap<String,ClientManager>();
+
+	public ClientManager(Socket client) {   // construtor -  Recebe um socket como parametro pq is um gerenciador de cliente p/ cada cliente.  
+		this.client = client;  // dentro do gerenciador de cliente ele tem um cliente
+		start();  // start a thread
+	}
+	
+	/**
+	 * 
+	 */
+	@Override
+	public void run() {   // toda a classe Thread tem o metodo run e is onde vai fazer a conversa entre os clientes
+		// receber conversas e enviar conversas
+		// client.getInputStream - quando o cliente manda msg as msgs fica dentro desse InputStream
+		// o que is um InputStream - pegar uma conexao de dados, envia dados em tempo real, de pacote em pacote
+		// O stream em si so le bytes entao existe classe para trabalhar com string. Ex classe BufferedReader
+		try {
+			// O stream so ler byte entao tem que ter essa classe BufferedReader que consegue ler string, ou seja
+			// consegue transformar em string para nos
+			reader = new BufferedReader(new InputStreamReader(client.getInputStream()));  // leitor =  pega a msg do cliente
+			writer = new PrintWriter(client.getOutputStream(), true);  //PrintWriter = Para enviar msg para o cliente (outputStream) para enviar
+			// o segundo parametro (true) is um autoflush - true e para enviar diretamente para o cliente a msg
+			
+			//String msg = leitor.readLine(); toda vez que escrever algo e apertar enter chega aqui a msg
+			// this.nomeCliente = msg  // nomeCliente e o nome do cliente q demos
+			
+			efetuarLogin();
+			
+			String msg;
+			// while loop pq o cliente pode enviar varias msgs
+			while(true){
+				msg = reader.readLine();  // ler as msgs do cliente
+				
+				// ignoreCase para poder escrever maiusculas e minusculas
+				// esse if e para da a opcao do cliente sair
+				if(msg.equalsIgnoreCase(Commands.EXIT)){
+					this.client.close();
+				}else if(msg.startsWith(Commands.MESSAGE)){
+					String recipientName = msg.substring(Commands.MESSAGE.length(), msg.length());
+					System.out.println("enviando para " + recipientName);
+					ClientManager destinario = clients.get(recipientName);
+					if(destinario == null){
+						writer.println("O cliente informado nao existe");
+					}else{
+//						escritor.println("digite uma mensagem para " + destinario.getNomeCliente());
+						//Envio de msg do cliente para
+						destinario.getEscritor().println(this.clientName + " disse: " + reader.readLine());
+						//FileWriter arq = new FileWriter("E:\\University\\2019_2020\\CS6002 Distributed and Internet Systems\\CourseWork\\CW1\\ChatLog.txt");
+						// Para enviar para o arquivo texto (log/historico)						
+				//		PrintWriter out = new PrintWriter("E:\\University\\2019_2020\\CS6002 Distributed and Internet Systems\\CourseWork\\CW1\\ChatLog.txt");
+				//		out.println(this.nomeCliente + " disse: " + leitor.readLine());
+				//		out.close();
+						//arq.close();
+					}
+					
+					
+				// lista o nome de todos os clientes logados
+				}else if(msg.equals(Commands.LIST_USERS)){
+					atualizarListaUsuarios(this);
+				}else{
+					writer.println(this.clientName + ", você disse: " + msg);
+				}
+			}
+			
+			
+		} catch (IOException e) {
+			System.err.println("o cliente fechou a conexao");
+			clients.remove(this.clientName);
+			e.printStackTrace();
+		}
+	}
+
+	private synchronized void  efetuarLogin() throws IOException {
+		
+		while(true){
+			writer.println(Commands.LOGIN);
+			this.clientName = reader.readLine().toLowerCase().replaceAll(",", "");
+			if(this.clientName.equalsIgnoreCase("null") || this.clientName.isEmpty()){
+				writer.println(Commands.LOGIN_DENIED);
+			}else if(clients.containsKey(this.clientName)){
+				writer.println(Commands.LOGIN_DENIED);
+			}else{
+				writer.println(Commands.LOGIN_ACCEPTED);
+				writer.println("olá " + this.clientName);
+				clients.put(this.clientName, this);  // put is o metodo q joga dentro do map a chave e o valor. this is o usuario q logou
+				for(String cliente: clients.keySet()){
+					atualizarListaUsuarios(clients.get(cliente));
+				}
+				break;
+			}
+		}
+	}
+
+	private void atualizarListaUsuarios(ClientManager cliente) {
+		StringBuffer str = new StringBuffer();
+		for(String c: clients.keySet()){
+			if(cliente.getNomeCliente().equals(c))
+				continue;
+			
+			str.append(c);
+			str.append(",");
+		}
+		if(str.length() > 0)
+			str.delete(str.length()-1, str.length());
+		cliente.getEscritor().println(Commands.LIST_USERS);
+		cliente.getEscritor().println(str.toString());
+	}
+// metodo que retorna o escritor
+	public PrintWriter getEscritor() {
+		return writer;
+	}
+// metodo que retorna o nome do cliente
+	public String getNomeCliente() {
+		return clientName;
+	}
+	
+//	public BufferedReader getLeitor() {
+//		return leitor;
+//	}
+}

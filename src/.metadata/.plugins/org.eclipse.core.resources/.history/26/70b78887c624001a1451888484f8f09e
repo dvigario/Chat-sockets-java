@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sequence-diagram version="1.2.3" icons="true" generate-combined-fragments="true">  
+  <object id="1" language="java" name="Commands" project="client-sockets-java" 
+    file="/client-sockets-java/src/Commands.java" binary="false" label="commands" type="class" autoSize="true">    
+    <position height="-1" width="-1" x="210" y="0"/>  
+  </object>  
+  <object id="2" language="java" name="ClientSide" project="client-sockets-java" 
+    file="/client-sockets-java/src/ClientSide.java" binary="false" label="clientSide" type="class" autoSize="true">    
+    <position height="-1" width="-1" x="210" y="0"/>  
+  </object>  
+  <object id="3" language="java" name="ClientManager" project="client-sockets-java" 
+    file="/client-sockets-java/src/ClientManager.java" binary="false" label="clientManager" type="class" autoSize="true">    
+    <position height="-1" width="-1" x="210" y="0"/>  
+  </object>  
+  <object id="4" language="java" name="ServerSide" project="server-sockets-java" 
+    file="/server-sockets-java/src/ServerSide.java" binary="false" label="serverSide" type="class" autoSize="true">    
+    <position height="-1" width="-1" x="441" y="0"/>  
+  </object>
+</sequence-diagram>

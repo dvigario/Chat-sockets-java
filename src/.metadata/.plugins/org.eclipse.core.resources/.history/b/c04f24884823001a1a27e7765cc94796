@@ -1,0 +1,203 @@
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
+import java.net.UnknownHostException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import javax.swing.DefaultListModel;
+import javax.swing.JFrame;
+import javax.swing.JList;
+import javax.swing.JOptionPane;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+
+public class Client extends JFrame {
+	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -5261903818373181455L;
+	private JTextArea taEditor = new JTextArea("Type your message");
+	private JTextArea taVisor = new JTextArea();
+	private JList liUsarios = new JList();
+	private PrintWriter escritor;
+	private BufferedReader leitor;
+	private JScrollPane scrollTaVisor = new JScrollPane(taVisor);
+	String userName;
+
+	public Client() {
+		
+		setTitle("Chat w/ sockets - djv0012");
+		setLocationRelativeTo(null);
+		setLayout(new BorderLayout());
+		liUsarios.setBackground(Color.GRAY);
+		taEditor.setBackground(Color.CYAN);
+
+		taEditor.setPreferredSize(new Dimension(400, 40));
+//		taVisor.setPreferredSize(new Dimension(350, 100));
+		taVisor.setEditable(false);
+		liUsarios.setPreferredSize(new Dimension(100, 140));
+		
+		add(taEditor, BorderLayout.SOUTH);
+		add(scrollTaVisor , BorderLayout.CENTER);
+		add(new JScrollPane(liUsarios), BorderLayout.WEST);
+		
+		pack();
+		setVisible(true);
+		setDefaultCloseOperation(EXIT_ON_CLOSE);
+
+		String[] usuarios = new String[]{"elvis", "maria", "joao", "jose", "renata", "marizete", "mateus", "robson"};
+		preencherListaUsuarios(usuarios);
+		
+	}	
+	
+	/**
+	 * Preenche a lista de usuarios
+	 * @param usuarios
+	 */
+	private void preencherListaUsuarios(String[] usuarios) {
+		DefaultListModel modelo = new DefaultListModel();
+		liUsarios.setModel(modelo);
+		for(String usuario: usuarios){
+			modelo.addElement(usuario);			
+		}
+		
+//		liUsarios.getModel().
+		
+	}
+
+	private void iniciarEscritor() {
+		taEditor.addKeyListener(new KeyListener() {
+
+			@Override
+			public void keyTyped(KeyEvent e) {}
+			
+			@Override
+			public void keyPressed(KeyEvent e) {
+//				taEditor.getText()
+				if(e.getKeyCode() == KeyEvent.VK_ENTER){
+					// escrenvendo para o servidor
+					if(taVisor.getText().isEmpty()){
+						return;
+					}
+					
+					Object usuario = liUsarios.getSelectedValue();
+					if(usuario != null){  // Aqui que eu tenho que colocar o All para broadcast msg
+						// jogando no visor
+						taVisor.append("Eu: ");
+						taVisor.append(taEditor.getText());
+						taVisor.append("\n");						
+						
+						escritor.println(Commands.MENSAGEM + usuario);
+						escritor.println(taEditor.getText());
+						
+						// Creating a log file (nao esta gravando a ultima linha de quem envia, so quando o usuario da janela envia q atualiza)
+						PrintWriter out;
+						try {
+							DateTimeFormatter formatter = DateTimeFormatter.BASIC_ISO_DATE;
+							String formattedDate = formatter.format(LocalDate.now());
+														
+							out = new PrintWriter("E:\\University\\2019_2020\\CS6002 Distributed and Internet Systems\\CourseWork\\CW1\\" + userName + "_" + formattedDate + ".txt");
+							out.println(taVisor.getText());
+							//System.out.println(taVisor.getText());
+							out.close();
+						} catch (FileNotFoundException e1) {
+							// TODO Auto-generated catch block
+							e1.printStackTrace();
+						}						
+						
+						
+						// limpando o editor
+						taEditor.setText("");
+						e.consume();
+					}else{
+						if(taVisor.getText().equalsIgnoreCase(Commands.SAIR)){
+							System.exit(0);
+						}
+						JOptionPane.showMessageDialog(ClientSide.this, "Selecione um usuario");
+						return ;
+					}
+				}				
+			}
+
+			@Override
+			public void keyReleased(KeyEvent e) {}
+		});
+		
+	}
+	
+	public void iniciarChat() {
+		try {
+			final Socket cliente = new Socket("127.0.0.1", 9999);
+			escritor = new PrintWriter(cliente.getOutputStream(), true);
+			leitor = new BufferedReader(new InputStreamReader(cliente.getInputStream()));			
+		} catch (UnknownHostException e) {
+			System.out.println("o endereço passado é inválido");
+			e.printStackTrace();
+		} catch (IOException e) {
+			System.out.println("o servidor pode estar fora ar");
+			e.printStackTrace();
+		}
+	}
+	
+	public static void main(String[] args) {
+		ClientSide cliente = new ClientSide();
+		cliente.iniciarChat();
+		cliente.iniciarEscritor();
+		cliente.inicarLeitor();
+	}
+	
+	private void atualizarListaUsuarios() {
+		escritor.println(Commands.LISTA_USUARIOS);
+	}
+
+	private void inicarLeitor() {
+		// lendo mensagens do servidor
+		try {
+			while(true){
+				String mensagem = leitor.readLine();
+								
+				if(mensagem == null || mensagem.isEmpty())
+					continue;
+				
+				// recebe o texto
+				if(mensagem.equals(Commands.LISTA_USUARIOS)){
+					String[] usuarios = leitor.readLine().split(",");
+					preencherListaUsuarios(usuarios);
+				}else if(mensagem.equals(Commands.LOGIN)){
+					String login = JOptionPane.showInputDialog("Qual o seu login?");
+					escritor.println(login);
+					setTitle(login);  // coloca o nome do usuario na barra superior da janela
+					userName = login;
+				}else if(mensagem.equals(Commands.LOGIN_NEGADO)){
+					JOptionPane.showMessageDialog(ClientSide.this, "o login é inválido");
+				}else if(mensagem.equals(Commands.LOGIN_ACEITO)){
+					atualizarListaUsuarios();	
+				}else{
+					taVisor.append(mensagem);
+					taVisor.append("\n");
+					taVisor.setCaretPosition(taVisor.getDocument().getLength());
+				}
+				
+			}     
+			
+		} catch (IOException e) {
+			System.out.println("impossivel ler a mensagem do servidor");
+			e.printStackTrace();
+		}		
+	}
+
+
+	private DefaultListModel getListaUsuarios() {
+		return (DefaultListModel) liUsarios.getModel();
+	}
+}
